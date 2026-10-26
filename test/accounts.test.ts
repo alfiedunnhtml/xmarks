@@ -25,3 +25,19 @@ test('shared posts preserve both accounts, scan all pages and repair stale index
   assert.equal(readdirSync(join(dir, 'bookmarks')).length, 3)
   const p = files.get('1')!; const before = readFileSync(p, 'utf8'); addBookmarkAccount(p, 'second'); assert.equal(readFileSync(p, 'utf8'), before)
 })
+
+test('account views preserve the shared view and filter each handle', async () => {
+  const { updateAccountViews } = await import('../src/base.js')
+  const root = mkdtempSync(join(tmpdir(), 'xmarks-base-'))
+  const previous = process.env.XMARKS_NOTES_DIR; process.env.XMARKS_NOTES_DIR = root
+  try {
+    const path = join(root, 'X Bookmarks.base')
+    writeFileSync(path, 'filters:\n  and:\n    - source == "bookmark"\nviews:\n  - type: feed\n    name: Bookmarks\n')
+    const config = { vaultPath: root, model: '', syncIntervalMinutes: 5, accounts: [{handle: 'first', authToken: '', ct0: ''}, {handle: 'second', authToken: '', ct0: ''}] }
+    updateAccountViews(config); updateAccountViews(config)
+    const data = parse(readFileSync(path, 'utf8'))
+    assert.deepEqual(data.views.map((v: {name: string}) => v.name), ['Bookmarks', '@first', '@second'])
+    assert.deepEqual(data.views[1].filters.and, ['bookmarkAccounts.contains("first")'])
+    assert.equal(data.views[2].type, 'feed')
+  } finally { if (previous === undefined) delete process.env.XMARKS_NOTES_DIR; else process.env.XMARKS_NOTES_DIR = previous }
+})

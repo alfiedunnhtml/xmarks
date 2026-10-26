@@ -1,5 +1,6 @@
 import { createInterface } from 'readline'
 import { decrypt, encrypt, saveConfig, type XmarksConfig } from './config.js'
+import { updateAccountViews } from './base.js'
 import { testConnection } from './twitter-api.js'
 
 export type Account = { handle: string; authToken: string; ct0: string }
@@ -20,6 +21,7 @@ export async function addAccount(config: XmarksConfig): Promise<void> {
     await testConnection(token, ct0)
     config.accounts = [...(config.accounts ?? []), { handle, authToken: encrypt(token), ct0: encrypt(ct0) }]
     saveConfig(config)
+    updateAccountViews(config)
     console.log(`Account @${handle} added. Restart the xmarks service to start its sync.`)
   } finally { rl.close() }
 }
@@ -41,5 +43,6 @@ export async function labelLegacy(config: XmarksConfig): Promise<void> {
   config.accounts = [{ handle, ...config.twitterAuth }]
   delete config.twitterAuth
   saveConfig(config)
+  updateAccountViews(config)
   console.log(`Existing account labelled @${handle}.`)
 }
