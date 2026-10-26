@@ -1,8 +1,10 @@
 import { existsSync, writeFileSync, readdirSync, readFileSync, appendFileSync } from 'fs'
 import { join } from 'path'
+import { parse as parseYaml } from 'yaml'
 import type { TweetData } from './twitter-api.js'
 
 const TWEET_INDEX_FILE = '.tweet-ids'
+const notesDir = (vaultPath: string) => process.env.XMARKS_NOTES_DIR || join(vaultPath, 'bookmarks')
 
 function getIndexPath(vaultPath: string): string {
   return join(vaultPath, TWEET_INDEX_FILE)
@@ -19,11 +21,11 @@ export function loadTweetIndex(vaultPath: string): Set<string> {
 }
 
 export function rebuildTweetIndex(vaultPath: string): Set<string> {
-  const bookmarksDir = join(vaultPath, 'bookmarks')
+  const bookmarksDir = notesDir(vaultPath)
   const ids = new Set<string>()
   if (!existsSync(bookmarksDir)) return ids
 
-  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md'))
+  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md') && readFileSync(join(bookmarksDir, f), 'utf8').match(/^tweetId: "\d+"$/m))
   for (const file of files) {
     const content = readFileSync(join(bookmarksDir, file), 'utf8')
     const match = content.match(/^tweetId: "(\d+)"$/m)
@@ -55,7 +57,7 @@ function formatDate(date: Date | null): string {
   return date.toISOString().split('T')[0]
 }
 
-export function tweetToMarkdown(tweet: TweetData): string {
+export function tweetToMarkdown(tweet: TweetData, account?: string): string {
   const date = formatDate(tweet.createdAt)
   const now = new Date().toISOString()
 
@@ -68,6 +70,7 @@ export function tweetToMarkdown(tweet: TweetData): string {
   frontmatter += `categories: []\n`
   frontmatter += `semanticTags: []\n`
   frontmatter += `source: bookmark\n`
+  if (account) frontmatter += `bookmarkAccounts: ${JSON.stringify([account])}\n`
   frontmatter += `url: https://x.com/${tweet.authorHandle}/status/${tweet.tweetId}\n`
   frontmatter += `categorized: false\n`
   frontmatter += `---\n`
@@ -78,7 +81,7 @@ export function tweetToMarkdown(tweet: TweetData): string {
     body += `\n## Media\n`
     for (const media of tweet.mediaUrls) {
       const filename = `${tweet.tweetId}-${tweet.mediaUrls.indexOf(media)}.jpg`
-      body += `![[media/${filename}]]\n`
+      body += `![[! attachments/X Bookmarks/${filename}]]\n`
     }
   }
 
@@ -95,10 +98,10 @@ export function tweetToMarkdown(tweet: TweetData): string {
 export function generateFilename(tweet: TweetData): string {
   const date = formatDate(tweet.createdAt)
   const slug = slugify(tweet.text) || tweet.tweetId
-  return `${date}-@${tweet.authorHandle}-${slug}.md`
+  return `${date}-@${tweet.authorHandle}-${slug}-${tweet.tweetId}.md`
 }
 
-export function writeBookmark(vaultPath: string, tweet: TweetData, index?: Set<string>): boolean {
+export function writeBookmark(vaultPath: string, tweet: TweetData, index?: Set<string>, account?: string): boolean {
   // Use index for O(1) lookup if provided, fall back to file scan
   if (index) {
     if (index.has(tweet.tweetId)) return false
@@ -107,9 +110,9 @@ export function writeBookmark(vaultPath: string, tweet: TweetData, index?: Set<s
   }
 
   const filename = generateFilename(tweet)
-  const filepath = join(vaultPath, 'bookmarks', filename)
-  const content = tweetToMarkdown(tweet)
-  writeFileSync(filepath, content, 'utf8')
+  const filepath = join(notesDir(vaultPath), filename)
+  const content = tweetToMarkdown(tweet, account)
+  writeFileSync(filepath, content, { encoding: 'utf8', flag: 'wx' })
 
   // Update index
   if (index) {
@@ -121,10 +124,10 @@ export function writeBookmark(vaultPath: string, tweet: TweetData, index?: Set<s
 }
 
 export function bookmarkExists(vaultPath: string, tweetId: string): boolean {
-  const bookmarksDir = join(vaultPath, 'bookmarks')
+  const bookmarksDir = notesDir(vaultPath)
   if (!existsSync(bookmarksDir)) return false
 
-  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md'))
+  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md') && readFileSync(join(bookmarksDir, f), 'utf8').match(/^tweetId: "\d+"$/m))
   for (const file of files) {
     const content = readFileSync(join(bookmarksDir, file), 'utf8')
     if (content.includes(`tweetId: "${tweetId}"`)) return true
@@ -133,10 +136,10 @@ export function bookmarkExists(vaultPath: string, tweetId: string): boolean {
 }
 
 export function getUncategorizedBookmarks(vaultPath: string): { filepath: string; content: string }[] {
-  const bookmarksDir = join(vaultPath, 'bookmarks')
+  const bookmarksDir = notesDir(vaultPath)
   if (!existsSync(bookmarksDir)) return []
 
-  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md'))
+  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md') && readFileSync(join(bookmarksDir, f), 'utf8').match(/^tweetId: "\d+"$/m))
   const uncategorized: { filepath: string; content: string }[] = []
 
   for (const file of files) {
@@ -184,10 +187,10 @@ export function updateFrontmatter(
 }
 
 export function getBookmarkCount(vaultPath: string): { total: number; categorized: number; uncategorized: number } {
-  const bookmarksDir = join(vaultPath, 'bookmarks')
+  const bookmarksDir = notesDir(vaultPath)
   if (!existsSync(bookmarksDir)) return { total: 0, categorized: 0, uncategorized: 0 }
 
-  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md'))
+  const files = readdirSync(bookmarksDir).filter(f => f.endsWith('.md') && readFileSync(join(bookmarksDir, f), 'utf8').match(/^tweetId: "\d+"$/m))
   let categorized = 0
   let uncategorized = 0
 
@@ -201,4 +204,42 @@ export function getBookmarkCount(vaultPath: string): { total: number; categorize
   }
 
   return { total: files.length, categorized, uncategorized }
+}
+
+// Use real note files as the source of truth; stale indexes must not suppress imports.
+export function bookmarkFiles(vaultPath: string): Map<string, string> {
+  const dir = notesDir(vaultPath)
+  const result = new Map<string, string>()
+  if (!existsSync(dir)) return result
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith('.md')) continue
+    const path = join(dir, name)
+    const content = readFileSync(path, 'utf8')
+    const id = content.match(/^tweetId: ["']?(\d+)["']?\s*$/m)?.[1]
+    if (id && !result.has(id)) result.set(id, path)
+  }
+  return result
+}
+
+export function addBookmarkAccount(path: string, account: string): boolean {
+  const original = readFileSync(path, 'utf8')
+  const match = original.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/)
+  if (!match) throw new Error(`Missing frontmatter in ${path}`)
+  const metadata = parseYaml(match[1])
+  if (!metadata || typeof metadata !== 'object') throw new Error(`Invalid frontmatter in ${path}`)
+  const old = metadata.bookmarkAccounts
+  if (old != null && !Array.isArray(old)) throw new Error(`Invalid bookmarkAccounts in ${path}`)
+  const accounts = old ?? []
+  if (accounts.includes(account)) return false
+  // Update only the property, preserving all unrelated note contents and formatting.
+  const node = JSON.stringify([...accounts, account])
+  let frontmatter = match[1]
+  if (old != null) {
+    const property = /^bookmarkAccounts:.*(?:\r?\n[ \t]+.*)*/m
+    if (!property.test(frontmatter)) throw new Error(`Cannot update bookmarkAccounts in ${path}`)
+    frontmatter = frontmatter.replace(property, `bookmarkAccounts: ${node.replace(/\n/g, '\n  ')}`)
+  } else frontmatter += `\nbookmarkAccounts: ${JSON.stringify([...accounts, account])}`
+  const updated = `---\n${frontmatter}\n---${match[2]}` + original.slice(match[0].length)
+  writeFileSync(path, updated, 'utf8')
+  return true
 }

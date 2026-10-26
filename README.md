@@ -167,3 +167,9 @@ The skill uses QMD for semantic search when available, and falls back to grep/gl
 ## License
 
 MIT
+
+## Two-account sync
+
+The `account-add` command adds a separate X session without changing other accounts. Run it once per account, then restart the service. Each note has a `bookmarkAccounts` list. When both accounts bookmark a post, the sync adds both handles to the existing note. It does not remove bookmarks on X. Sync scans every page and checks the actual note files rather than relying on the index. Authentication failures are logged per account and do not stop the other account from syncing.
+
+Use `XMARKS_NOTES_DIR` to select the folder for note files and `XMARKS_MEDIA_DIR` for downloaded images. The note image links use `! attachments/X Bookmarks` inside the vault.

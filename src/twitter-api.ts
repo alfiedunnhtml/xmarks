@@ -99,7 +99,8 @@ export async function fetchBookmarksPage(
 
 function parsePage(data: unknown): { tweets: TweetData[]; nextCursor: string | null } {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const instructions = (data as any)?.data?.bookmark_timeline_v2?.timeline?.instructions ?? []
+  const instructions = (data as any)?.data?.bookmark_timeline_v2?.timeline?.instructions
+  if (!Array.isArray(instructions)) throw new Error('X bookmark response format changed or returned an error')
   const tweets: TweetData[] = []
   let nextCursor: string | null = null
 

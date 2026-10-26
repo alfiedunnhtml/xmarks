@@ -4,7 +4,7 @@ import type { TweetData } from './twitter-api.js'
 
 export async function downloadThumbnails(vaultPath: string, tweet: TweetData): Promise<number> {
   let downloaded = 0
-  const mediaDir = join(vaultPath, 'media')
+  const mediaDir = process.env.XMARKS_MEDIA_DIR || join(vaultPath, 'media')
 
   for (let i = 0; i < tweet.mediaUrls.length; i++) {
     const media = tweet.mediaUrls[i]

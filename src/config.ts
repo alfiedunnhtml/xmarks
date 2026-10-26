@@ -11,6 +11,7 @@ export interface XmarksConfig {
     authToken: string // encrypted
     ct0: string       // encrypted
   }
+  accounts?: { handle: string; authToken: string; ct0: string }[]
   anthropicApiKey?: string // encrypted
 }
 

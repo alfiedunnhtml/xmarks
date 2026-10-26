@@ -2,6 +2,7 @@
 import { homedir } from 'os'
 import { join } from 'path'
 import { loadConfig, getDecryptedCredentials, ensureVaultStructure } from './config.js'
+import { addAccount, configuredAccounts } from './accounts.js'
 import { runSetup } from './setup.js'
 import { syncBookmarks } from './sync.js'
 import { categorizeBookmarks, estimateCost } from './categorize.js'
@@ -51,29 +52,24 @@ async function main() {
       break
     }
 
+    case 'account-add': {
+      await addAccount(requireConfig(vaultPath))
+      break
+    }
+
     case 'sync': {
       const config = requireConfig(vaultPath)
-      const creds = getDecryptedCredentials(config)
-
-      if (!creds.authToken || !creds.ct0) {
-        console.error('  Twitter credentials not configured. Run: xmarks setup')
-        process.exit(1)
+      const accounts = configuredAccounts(config)
+      const legacy = getDecryptedCredentials(config)
+      if (!accounts.length && legacy.authToken && legacy.ct0) accounts.push({ handle: '', authToken: legacy.authToken, ct0: legacy.ct0 })
+      if (!accounts.length) throw new Error('No X accounts configured')
+      let failed = false
+      for (const account of accounts) {
+        const result = await syncBookmarks(config.vaultPath, account.authToken, account.ct0, msg => console.log(`  ${msg}`), account.handle || undefined)
+        if (result.error) { console.error(`  @${account.handle}: ${result.error}`); failed = true }
+        else console.log(`  @${account.handle}: ${result.imported} imported, ${result.skipped} existing`)
       }
-
-      console.log('\n  Syncing bookmarks...')
-      const result = await syncBookmarks(
-        config.vaultPath,
-        creds.authToken,
-        creds.ct0,
-        msg => console.log(`  ${msg}`),
-      )
-
-      if (result.error) {
-        console.error(`  Error: ${result.error}`)
-        process.exit(1)
-      }
-
-      console.log(`\n  Done: ${result.imported} imported, ${result.skipped} skipped, ${result.mediaDownloaded} thumbnails`)
+      if (failed) process.exitCode = 1
       break
     }
 
@@ -165,6 +161,7 @@ async function main() {
 
   Commands:
     setup                 Interactive setup (cookies, API key, vault path)
+    account-add           Add an X account without replacing other sessions
     sync                  One-shot sync of bookmarks
     categorize            Run AI categorization on uncategorized bookmarks
     daemon                Background sync on interval (default: 5 min)
