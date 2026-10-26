@@ -23,3 +23,23 @@ export async function addAccount(config: XmarksConfig): Promise<void> {
     console.log(`Account @${handle} added. Restart the xmarks service to start its sync.`)
   } finally { rl.close() }
 }
+
+export async function labelLegacy(config: XmarksConfig): Promise<void> {
+  if (!config.twitterAuth) throw new Error('No legacy account is configured')
+  if (config.accounts?.length) throw new Error('Accounts are already configured')
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  const handle = await new Promise<string>(resolve => rl.question('Handle for the existing X account (without @): ', a => resolve(a.trim().replace(/^@/, '').toLowerCase())))
+  rl.close()
+  if (!/^[a-z0-9_]{1,15}$/.test(handle)) throw new Error('Invalid X handle')
+  const { readFileSync, existsSync } = await import('fs')
+  const { join } = await import('path')
+  const { bookmarkFiles, addBookmarkAccount } = await import('./markdown.js')
+  const index = join(config.vaultPath, '.tweet-ids')
+  const ids = new Set(existsSync(index) ? readFileSync(index, 'utf8').split('\n').filter(Boolean) : [])
+  const files = bookmarkFiles(config.vaultPath)
+  for (const [id, path] of files) if (ids.has(id)) addBookmarkAccount(path, handle)
+  config.accounts = [{ handle, ...config.twitterAuth }]
+  delete config.twitterAuth
+  saveConfig(config)
+  console.log(`Existing account labelled @${handle}.`)
+}

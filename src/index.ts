@@ -2,7 +2,7 @@
 import { homedir } from 'os'
 import { join } from 'path'
 import { loadConfig, getDecryptedCredentials, ensureVaultStructure } from './config.js'
-import { addAccount, configuredAccounts } from './accounts.js'
+import { addAccount, configuredAccounts, labelLegacy } from './accounts.js'
 import { runSetup } from './setup.js'
 import { syncBookmarks } from './sync.js'
 import { categorizeBookmarks, estimateCost } from './categorize.js'
@@ -49,6 +49,11 @@ async function main() {
   switch (command) {
     case 'setup': {
       await runSetup(vaultPath)
+      break
+    }
+
+    case 'account-label-legacy': {
+      await labelLegacy(requireConfig(vaultPath))
       break
     }
 
@@ -161,6 +166,7 @@ async function main() {
 
   Commands:
     setup                 Interactive setup (cookies, API key, vault path)
+    account-label-legacy  Label the existing account and its imported notes
     account-add           Add an X account without replacing other sessions
     sync                  One-shot sync of bookmarks
     categorize            Run AI categorization on uncategorized bookmarks
