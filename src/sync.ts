@@ -33,7 +33,8 @@ export async function syncBookmarks(vaultPath: string, authToken: string, ct0: s
         }
       }
       if (!nextCursor) break
-      if (visited.has(nextCursor)) throw new Error('X returned a repeated pagination cursor')
+      if (visited.has(nextCursor) && tweets.length === 0) break
+      if (visited.has(nextCursor)) throw new Error('X returned a repeated pagination cursor with posts')
       if (page === 999) throw new Error('Bookmark scan reached the page limit')
       visited.add(nextCursor)
       cursor = nextCursor
