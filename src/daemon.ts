@@ -15,11 +15,11 @@ export async function runDaemon(config: XmarksConfig): Promise<void> {
   do {
     for (const account of accounts) {
       if (stopped) break
-      console.log(`Syncing ${account.handle ? '@' + account.handle : 'legacy account'}...`)
+      console.log(`Syncing ${account.handle ? account.handle : 'legacy account'}...`)
       const result = await syncBookmarks(config.vaultPath, account.authToken, account.ct0, undefined, account.handle || undefined)
-      if (result.error) console.error(`Sync failed for @${account.handle}: ${result.error}`)
+      if (result.error) console.error(`Sync failed for ${account.handle}: ${result.error}`)
       else {
-        console.log(`Synced @${account.handle}: ${result.imported} new, ${result.skipped} existing, ${result.mediaDownloaded} thumbnails`)
+        console.log(`Synced ${account.handle}: ${result.imported} new, ${result.skipped} existing, ${result.mediaDownloaded} thumbnails`)
         if (legacy.apiKey && result.imported) await categorizeBookmarks(config.vaultPath, legacy.apiKey, config.model)
       }
     }

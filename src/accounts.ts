@@ -11,8 +11,8 @@ export async function addAccount(config: XmarksConfig): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   const ask = (q: string) => new Promise<string>(resolve => rl.question(q, a => resolve(a.trim())))
   try {
-    const handle = (await ask('X account handle (without @): ')).replace(/^@/, '').toLowerCase()
-    if (!/^[a-z0-9_]{1,15}$/.test(handle)) throw new Error('Invalid X handle')
+    const handle = (await ask('Account label (for example, Panda Press): '))
+    if (!handle || handle.length > 80 || /[\r\n]/.test(handle)) throw new Error('Invalid account label')
     if (config.accounts?.some(a => a.handle === handle)) throw new Error('Account is already configured')
     console.log('Provide the X cookies for this account. Do not share them in chat.')
     const token = await ask('auth_token: ')
@@ -22,7 +22,7 @@ export async function addAccount(config: XmarksConfig): Promise<void> {
     config.accounts = [...(config.accounts ?? []), { handle, authToken: encrypt(token), ct0: encrypt(ct0) }]
     saveConfig(config)
     updateAccountViews(config)
-    console.log(`Account @${handle} added. Restart the xmarks service to start its sync.`)
+    console.log(`Account ${handle} added. Restart the xmarks service to start its sync.`)
   } finally { rl.close() }
 }
 
@@ -30,9 +30,9 @@ export async function labelLegacy(config: XmarksConfig): Promise<void> {
   if (!config.twitterAuth) throw new Error('No legacy account is configured')
   if (config.accounts?.length) throw new Error('Accounts are already configured')
   const rl = createInterface({ input: process.stdin, output: process.stdout })
-  const handle = await new Promise<string>(resolve => rl.question('Handle for the existing X account (without @): ', a => resolve(a.trim().replace(/^@/, '').toLowerCase())))
+  const handle = await new Promise<string>(resolve => rl.question('Label for the existing X account: ', a => resolve(a.trim())))
   rl.close()
-  if (!/^[a-z0-9_]{1,15}$/.test(handle)) throw new Error('Invalid X handle')
+  if (!handle || handle.length > 80 || /[\r\n]/.test(handle)) throw new Error('Invalid account label')
   const { readFileSync, existsSync } = await import('fs')
   const { join } = await import('path')
   const { bookmarkFiles, addBookmarkAccount } = await import('./markdown.js')
@@ -44,5 +44,5 @@ export async function labelLegacy(config: XmarksConfig): Promise<void> {
   delete config.twitterAuth
   saveConfig(config)
   updateAccountViews(config)
-  console.log(`Existing account labelled @${handle}.`)
+  console.log(`Existing account labelled ${handle}.`)
 }

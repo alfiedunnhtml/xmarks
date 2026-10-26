@@ -36,7 +36,7 @@ test('account views preserve the shared view and filter each handle', async () =
     const config = { vaultPath: root, model: '', syncIntervalMinutes: 5, accounts: [{handle: 'first', authToken: '', ct0: ''}, {handle: 'second', authToken: '', ct0: ''}] }
     updateAccountViews(config); updateAccountViews(config)
     const data = parse(readFileSync(path, 'utf8'))
-    assert.deepEqual(data.views.map((v: {name: string}) => v.name), ['Bookmarks', '@first', '@second'])
+    assert.deepEqual(data.views.map((v: {name: string}) => v.name), ['Bookmarks', 'first', 'second'])
     assert.deepEqual(data.views[1].filters.and, ['bookmarkAccounts.contains("first")'])
     assert.equal(data.views[2].type, 'feed')
   } finally { if (previous === undefined) delete process.env.XMARKS_NOTES_DIR; else process.env.XMARKS_NOTES_DIR = previous }
